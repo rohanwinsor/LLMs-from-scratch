@@ -6,8 +6,8 @@ class SimpleTokenizerV2:
     def __init__(self, vocab: Set[str]):
         self.vocab: Set[str] = vocab
         self.vocab.add("<unk>")
-        self.vocab.add("<eos>")
-        self.idx2c = {idx: c for idx, c in enumerate(self.vocab)}
+        self.vocab.add("<|endoftext|>")
+        self.idx2c = {idx: c for idx, c in enumerate(self.vocab)} # in the book this is vocab
         self.c2idx = {c: idx for idx, c in self.idx2c.items()}
 
     @staticmethod
@@ -27,5 +27,5 @@ if __name__ == "__main__":
         data = f.read()
     vocab = set([i for i in re.split(SimpleTokenizerV2.reg_exp(), data) if i.strip()])
     tokenzier = SimpleTokenizerV2(vocab)
-    text = "Hello, do you like tea? <eos> In the sunlit terraces of the palace."
+    text = "Hello, do you like tea? <|endoftext|> In the sunlit terraces of the palace."
     print(tokenzier.decode(tokenzier.encode(text)))
