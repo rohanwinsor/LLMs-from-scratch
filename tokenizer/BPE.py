@@ -18,7 +18,7 @@ class BPETokenizer(Dataset):
             self.target_ids.append(self.tokens[i + 1 : i + max_length + 1])
 
     def __len__(self):
-        return len(self.tokens)
+        return len(self.input_ids)
 
     def __getitem__(self, index):
         return self.input_ids[index], self.target_ids[index]
