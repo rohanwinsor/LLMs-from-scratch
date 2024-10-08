@@ -12,7 +12,6 @@ class BPETokenizer(Dataset):
     ) -> None:
         super().__init__()
         self.tokenizer = tiktoken.encoding_for_model(model_name)
-        print(dir(self.tokenizer))
         self.tokens = self.tokenizer.encode(text)
         self.input_ids = []
         self.target_ids = []
@@ -30,9 +29,9 @@ class BPETokenizer(Dataset):
 
 
 def add_pos_embeddings(ids, n_vocab=50257, n_dim=256):
-    embedding_layer = nn.Embedding(n_vocab, n_dim)
-    pos_embedding_layer = nn.Embedding(n_vocab, n_dim)
-    return embedding_layer(ids) + pos_embedding_layer(torch.arange(len(ids)))
+    embedding_layer = nn.Embedding(n_vocab, n_dim) # token ids 
+    pos_embedding_layer = nn.Embedding(n_vocab, n_dim) # pos encoding
+    return embedding_layer(ids) + pos_embedding_layer(torch.arange(len(ids))) # len(ids) == max_len
 
 
 def create_dataloader(text, mode_name, max_length, stride, batch_size, shuffle):
