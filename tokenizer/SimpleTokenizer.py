@@ -7,21 +7,25 @@ class SimpleTokenizerV2:
         self.vocab: Set[str] = vocab
         self.vocab.add("<unk>")
         self.vocab.add("<|endoftext|>")
-        self.idx2c = {idx: c for idx, c in enumerate(self.vocab)} # in the book this is vocab
+        self.idx2c = {
+            idx: c for idx, c in enumerate(self.vocab)
+        }  # in the book this is vocab
         self.c2idx = {c: idx for idx, c in self.idx2c.items()}
 
     @staticmethod
     def reg_exp():
         return r'([,.:;?_!"()\']|--|\s)'
+
     def encode(self, text):
         tokens = [i for i in re.split(SimpleTokenizerV2.reg_exp(), text) if i.strip()]
         return [self.c2idx.get(tok, self.c2idx["<unk>"]) for tok in tokens]
 
     def decode(self, tokens):
-        text = ' '.join(self.idx2c[tok] for tok in tokens)
-        text = re.sub(r'\s+([,.:;?!"()\'])', r'\1', text) # WHY !!!!
+        text = " ".join(self.idx2c[tok] for tok in tokens)
+        text = re.sub(r'\s+([,.:;?!"()\'])', r"\1", text)  # WHY !!!!
         return text
-    
+
+
 if __name__ == "__main__":
     with open("the-verdict.txt", "r") as f:
         data = f.read()
