@@ -29,9 +29,11 @@ class BPETokenizer(Dataset):
 
 
 def add_pos_embeddings(ids, n_vocab=50257, n_dim=256):
-    embedding_layer = nn.Embedding(n_vocab, n_dim) # token ids 
-    pos_embedding_layer = nn.Embedding(n_vocab, n_dim) # pos encoding
-    return embedding_layer(ids) + pos_embedding_layer(torch.arange(len(ids))) # len(ids) == max_len
+    embedding_layer = nn.Embedding(n_vocab, n_dim)  # token ids
+    pos_embedding_layer = nn.Embedding(n_vocab, n_dim)  # pos encoding
+    return embedding_layer(ids) + pos_embedding_layer(
+        torch.arange(len(ids))
+    )  # len(ids) == max_len
 
 
 def create_dataloader(text, mode_name, max_length, stride, batch_size, shuffle):
