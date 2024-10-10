@@ -46,7 +46,9 @@ class CausalAttention(nn.Module):
         self.W_key = nn.Linear(d_in, d_out, bias=qkv_bias)
         self.W_value = nn.Linear(d_in, d_out, bias=qkv_bias)
         self.dropout = nn.Dropout()
-        self.register_buffer("mask", torch.triu(torch.ones(context_len, context_len), diagonal=1))
+        self.register_buffer(
+            "mask", torch.triu(torch.ones(context_len, context_len), diagonal=1)
+        )
 
     def forward(self, x):
         ## Batching
@@ -54,12 +56,16 @@ class CausalAttention(nn.Module):
         self.keys = self.W_key(x)
         self.querys = self.W_query(x)
         self.value = self.W_value(x)
-        omega: torch.Tensor = self.querys @ self.keys.transpose(1, 2) # batched transpose
+        omega: torch.Tensor = self.querys @ self.keys.transpose(
+            1, 2
+        )  # batched transpose
         omega.masked_fill_(
             self.mask.bool()[:T, :T], -torch.inf
         )  # Could not understand this line
         # scale
-        att_weight = self.dropout(torch.softmax(omega / self.keys.shape[-1] ** 0.5, dim=-1))
+        att_weight = self.dropout(
+            torch.softmax(omega / self.keys.shape[-1] ** 0.5, dim=-1)
+        )
         context_vec = att_weight @ self.value
         return context_vec
 
