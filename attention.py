@@ -3,7 +3,7 @@ import torch.nn as nn
 import torch.functional as F
 
 
-class SelfAttentationV0(nn.Module):
+class SelfAttentionV0(nn.Module):
     def __init__(self, inp_dim, out_dim) -> None:
         super().__init__()
         self.W_query = nn.Parameter(torch.rand(size=(inp_dim, out_dim)))
@@ -21,7 +21,7 @@ class SelfAttentationV0(nn.Module):
         return context_vec
 
 
-class SelfAttentationV1(nn.Module):
+class SelfAttentionV1(nn.Module):
     def __init__(self, inp_dim, out_dim, qkv_bias=False) -> None:
         super().__init__()
         self.W_query = nn.Linear(inp_dim, out_dim, bias=qkv_bias)
@@ -39,7 +39,7 @@ class SelfAttentationV1(nn.Module):
         return context_vec
 
 
-class CausalAttentation(nn.Module):
+class CausalAttention(nn.Module):
     def __init__(self, d_in, d_out, context_len, qkv_bias=False):
         super().__init__()
         self.W_query = nn.Linear(d_in, d_out, bias=qkv_bias)
@@ -51,7 +51,6 @@ class CausalAttentation(nn.Module):
     def forward(self, x):
         ## Batching
         B, T, C = x.shape  # Batch Size, Sequence Size, Embedding Dim
-        print(x.shape)
         self.keys = self.W_key(x)
         self.querys = self.W_query(x)
         self.value = self.W_value(x)
@@ -77,8 +76,8 @@ if __name__ == "__main__":
             [0.05, 0.80, 0.55],
         ]
     )
-    model = SelfAttentationV0(3, 2)
-    model2 = SelfAttentationV1(3, 2)
+    model = SelfAttentionV0(3, 2)
+    model2 = SelfAttentionV1(3, 2)
     model2.load_state_dict(model.state_dict(), strict=False)
     print(model(inputs))
-    print(CausalAttentation(3, 2, 6)(torch.stack((inputs, inputs))))
+    print(CausalAttention(3, 2, 6)(torch.stack((inputs, inputs))))
