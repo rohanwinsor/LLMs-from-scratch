@@ -3,12 +3,12 @@ import torch.nn as nn
 import torch.functional as F
 
 
-class SelfAttentionV0(nn.Module):
+class SelfAttentationV0(nn.Module):
     def __init__(self, inp_dim, out_dim) -> None:
         super().__init__()
+        self.W_query = nn.Parameter(torch.rand(size=(inp_dim, out_dim)))
         self.W_key = nn.Parameter(torch.rand(size=(inp_dim, out_dim)))
         self.W_value = nn.Parameter(torch.rand(size=(inp_dim, out_dim)))
-        self.W_query = nn.Parameter(torch.rand(size=(inp_dim, out_dim)))
 
     def forward(self, x):
         key = x @ self.W_key
@@ -19,6 +19,28 @@ class SelfAttentionV0(nn.Module):
         att_weight = torch.softmax(att_score / (key.shape[-1] ** 0.5), dim=-1)
         context_vec = att_weight @ value
         return context_vec
+
+
+class SelfAttentationV1(nn.Module):
+    def __init__(self, inp_dim, out_dim, qkv_bias=False) -> None:
+        super().__init__()
+        self.W_query = nn.Linear(inp_dim, out_dim, bias=qkv_bias)
+        self.W_key = nn.Linear(inp_dim, out_dim, bias=qkv_bias)
+        self.W_value = nn.Linear(inp_dim, out_dim, bias=qkv_bias)
+
+    def forward(self, x):
+        key = self.W_key(x)
+        value = self.W_value(x)
+        query = self.W_query(x)
+        att_score = query @ key.T  # omega
+        # scaled dot product
+        att_weight = torch.softmax(att_score / (key.shape[-1] ** 0.5), dim=-1)
+        context_vec = att_weight @ value
+        return context_vec
+
+class CausalAttentation(nn.Module):
+    pass
+
 
 if __name__ == "__main__":
     torch.manual_seed(123)
@@ -32,5 +54,8 @@ if __name__ == "__main__":
             [0.05, 0.80, 0.55],
         ]
     )
-    sa_v0 = SelfAttentionV0(3, 2)
-    print(sa_v0(inputs))
+    model = SelfAttentationV0(3, 2)
+    model2 = SelfAttentationV1(3, 2)
+    model2.load_state_dict(model.state_dict(), strict=False)
+    print(model(inputs))
+    # print(SelfAttentationV1(3, 2)(inputs))
