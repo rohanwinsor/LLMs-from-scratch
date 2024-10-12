@@ -29,7 +29,9 @@ class SelfAttentionV1(nn.Module):
         self.W_value = nn.Linear(inp_dim, out_dim, bias=qkv_bias)
 
     def forward(self, x):
+        print(x.shape)
         key = self.W_key(x)
+        print(key.shape)
         value = self.W_value(x)
         query = self.W_query(x)
         att_score = query @ key.T  # omega
@@ -79,11 +81,11 @@ if __name__ == "__main__":
             [0.57, 0.85, 0.64],  # starts (x^3)
             [0.22, 0.58, 0.33],  # with (x^4)
             [0.77, 0.25, 0.10],  # one (x^5)
-            [0.05, 0.80, 0.55],
+            [0.05, 0.80, 0.55],  # step (x^6)
         ]
     )
     model = SelfAttentionV0(3, 2)
     model2 = SelfAttentionV1(3, 2)
+    print(model2(inputs))
     model2.load_state_dict(model.state_dict(), strict=False)
-    print(model(inputs))
-    print(CausalAttention(3, 2, 6)(torch.stack((inputs, inputs))))
+    CausalAttention(3, 2, 6)(torch.stack((inputs, inputs)))
