@@ -15,6 +15,8 @@ class MultiHeadAttentionV0(nn.Module):
 
     def forward(self, x):
         return torch.concat([head(x) for head in self.heads], dim=-1)
+
+
 class MultiHeadAttention(nn.Module):
     def __init__(self, d_in, d_out, context_len, n_head=3, qkv_bias=False):
         super().__init__()
