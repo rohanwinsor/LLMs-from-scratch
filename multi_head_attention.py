@@ -19,7 +19,7 @@ class MultiHeadAttentionV0(nn.Module):
 
 
 class MultiHeadAttention(nn.Module):
-    def __init__(self, d_in, d_out, context_len, n_head=3, qkv_bias=False):
+    def __init__(self, d_in, d_out, context_len, dropout, n_head=3, qkv_bias=False):
         super().__init__()
         assert d_out % n_head == 0, Exception("d_out should be divisible by n_head")
         self.d_out = d_out
@@ -28,6 +28,8 @@ class MultiHeadAttention(nn.Module):
         self.k_W = nn.Linear(d_in, d_out, bias=qkv_bias)
         self.q_W = nn.Linear(d_in, d_out, bias=qkv_bias)
         self.v_W = nn.Linear(d_in, d_out, bias=qkv_bias)
+        self.dropout = nn.Dropout(dropout)
+        self.proj = nn.Linear(d_out, d_out)
         self.register_buffer(
             "mask", torch.triu(torch.ones(context_len, context_len), diagonal=1)
         )
@@ -44,11 +46,11 @@ class MultiHeadAttention(nn.Module):
         omega: Tensor = query @ key.transpose(2, 3)
         # mask omega
         omega.masked_fill_(self.mask.bool()[:T, :T], -torch.inf)
-        att_weight = torch.softmax(omega / key.shape[-1] ** 0.5, dim=-1)
+        att_weight = self.dropout(torch.softmax(omega / key.shape[-1] ** 0.5, dim=-1))
         context_vec = (
             (att_weight @ value).transpose(2, 3).contiguous().view(B, T, self.d_out)
         )  # re-assemble all head outputs side by side, still don't understand though
-        return context_vec
+        return self.proj(context_vec)
 
 
 class MultiHeadAttentionNoBatch(nn.Module):
