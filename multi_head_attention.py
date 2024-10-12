@@ -68,8 +68,7 @@ class MultiHeadAttentionNoBatch(nn.Module):
     def forward(self, x):
         T, C = x.shape
         print(T)
-        # if you don't do it like this chatgpt told it will act like channel
-        # makes sense but give me source bitch
+        # Don't undetstand bro :(
         # Transpose: (num_tokens, num_heads, head_dim) -> (num_heads, num_tokens, head_dim)
         keys = self.W_k(x).view(T, self.n_head, self.head_dim).permute(1, 0, 2)
         queries = self.W_q(x).view(T, self.n_head, self.head_dim).permute(1, 0, 2)
@@ -77,8 +76,10 @@ class MultiHeadAttentionNoBatch(nn.Module):
         omega = queries @ keys.transpose(1, 2)
         omega.masked_fill_(self.mask.bool()[:T, :T], -torch.inf)
         att_w = torch.softmax(omega / keys.shape[-1] ** -0.5, dim=-1)
-        # (num_tokens, num_heads, head_dim)
-        context = (att_w @ values).transpose(1, 2).contiguous().view(T, self.d_out)
+        # (num_heads, num_tokens, head_dim) -> (num_tokens, num_heads, head_dim) 
+        context = (att_w @ values).transpose(1, 2)
+        # (num_tokens, num_heads, head_dim) -> (num_tokens, d_out)
+        context.contiguous().view(T, self.d_out)
         return context
 
 
@@ -94,10 +95,9 @@ if __name__ == "__main__":
             [0.05, 0.80, 0.55],  # step (x^6)
         ]
     )
-    print(
-        MultiHeadAttentionV0(3, 3, 6, False, 3)(inputs.view(1, *inputs.shape))
-        .view(6, 9)
-        .shape
-    )
-    print(MultiHeadAttention(3, 9, 6)(inputs.view(1, *inputs.shape)).view(6, 9).shape)
-    print(MultiHeadAttentionNoBatch(3, 9, 6)(inputs).shape)
+    # print(
+    #     MultiHeadAttentionV0(3, 3, 6, False, 3)(inputs.view(1, *inputs.shape))
+    #     .view(6, 9)
+    #     .shape
+    # )
+    print(MultiHeadAttentionNoBatch(3, 9, 6)(inputs))
