@@ -52,36 +52,36 @@ class MultiHeadAttention(nn.Module):
 
 
 class MultiHeadAttentionNoBatch(nn.Module):
-    def __init__(self, d_in, d_out, context_len, n_head=3, qkv_bias=False):
+    def __init__(self, d_in, d_out, context_len, dropout, n_head=3, qkv_bias=False):
         super().__init__()
-        assert d_out % n_head == 0
+        assert d_out % n_head == 0, "d_out must be divisible by num_heads"
         self.head_dim = d_out // n_head
         self.n_head = n_head
         self.d_out = d_out
         self.W_q = nn.Linear(d_in, d_out, bias=qkv_bias)
         self.W_k = nn.Linear(d_in, d_out, bias=qkv_bias)
         self.W_v = nn.Linear(d_in, d_out, bias=qkv_bias)
+        self.out_proj = nn.Linear(d_out, d_out)
+        self.dropout = nn.Dropout(dropout)
         self.register_buffer(
             "mask", torch.triu(torch.ones(context_len, context_len), diagonal=1)
         )
 
     def forward(self, x):
         T, C = x.shape
-        print(T)
-        # Don't undetstand bro :(
+        # Makes sense from a pure techinical point of view but feel dumb. Don't understand bro :(
         # Transpose: (num_tokens, num_heads, head_dim) -> (num_heads, num_tokens, head_dim)
         keys = self.W_k(x).view(T, self.n_head, self.head_dim).permute(1, 0, 2)
         queries = self.W_q(x).view(T, self.n_head, self.head_dim).permute(1, 0, 2)
         values = self.W_v(x).view(T, self.n_head, self.head_dim).permute(1, 0, 2)
         omega = queries @ keys.transpose(1, 2)
         omega.masked_fill_(self.mask.bool()[:T, :T], -torch.inf)
-        att_w = torch.softmax(omega / keys.shape[-1] ** -0.5, dim=-1)
-        # (num_heads, num_tokens, head_dim) -> (num_tokens, num_heads, head_dim) 
-        context = (att_w @ values).transpose(1, 2)
+        att_w = torch.softmax(omega / keys.shape[-1] ** 0.5, dim=-1)
+        att_w = self.dropout(att_w)
+        # (num_heads, num_tokens, head_dim) -> (num_tokens, num_heads, head_dim)
+        context = (att_w @ values).transpose(0, 1)
         # (num_tokens, num_heads, head_dim) -> (num_tokens, d_out)
-        context.contiguous().view(T, self.d_out)
-        return context
-
+        return self.out_proj(context.contiguous().view(T, self.d_out))
 
 if __name__ == "__main__":
     torch.manual_seed(123)
@@ -95,9 +95,5 @@ if __name__ == "__main__":
             [0.05, 0.80, 0.55],  # step (x^6)
         ]
     )
-    # print(
-    #     MultiHeadAttentionV0(3, 3, 6, False, 3)(inputs.view(1, *inputs.shape))
-    #     .view(6, 9)
-    #     .shape
-    # )
-    print(MultiHeadAttentionNoBatch(3, 9, 6)(inputs))
+    mha = MultiHeadAttentionNoBatch(3, 2, 6, 0.0, 2)
+    print(mha(inputs))
