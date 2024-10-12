@@ -45,8 +45,9 @@ class MultiHeadAttention(nn.Module):
         # mask omega
         omega.masked_fill_(self.mask.bool()[:T, :T], -torch.inf)
         att_weight = torch.softmax(omega / key.shape[-1] ** 0.5, dim=-1)
-        context_vec = (att_weight @ value).transpose(2, 3)
-        context_vec = context_vec.contiguous().view(B, T, self.d_out)
+        context_vec = (
+            (att_weight @ value).transpose(2, 3).contiguous().view(B, T, self.d_out)
+        )  # re-assemble all head outputs side by side
         return context_vec
 
 
