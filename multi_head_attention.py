@@ -48,8 +48,8 @@ class MultiHeadAttention(nn.Module):
         omega.masked_fill_(self.mask.bool()[:T, :T], -torch.inf)
         att_weight = self.dropout(torch.softmax(omega / key.shape[-1] ** 0.5, dim=-1))
         context_vec = (
-            (att_weight @ value).transpose(2, 3).contiguous().view(B, T, self.d_out)
-        )  # re-assemble all head outputs side by side, still don't understand though
+            (att_weight @ value).transpose(1, 2).contiguous().view(B, T, self.d_out)
+        )
         return self.proj(context_vec)
 
 
@@ -97,5 +97,5 @@ if __name__ == "__main__":
             [0.05, 0.80, 0.55],  # step (x^6)
         ]
     )
-    mha = MultiHeadAttentionNoBatch(3, 2, 6, 0.0, 2)
-    print(mha(inputs))
+    mha = MultiHeadAttention(3, 2, 6, 0.0, 2)
+    print(mha(torch.stack((inputs,))))
