@@ -1,4 +1,5 @@
 import torch
+from torch import Tensor
 import torch.nn as nn
 from attention import CausalAttention
 
@@ -31,26 +32,16 @@ class MultiHeadAttention(nn.Module):
             "mask", torch.triu(torch.ones(context_len, context_len), diagonal=1)
         )
 
-    def forward(self, x):
+    def forward(self, x: Tensor) -> Tensor:
         B, T, C = x.shape
-        print(T)
-        key = self.k_W(x)
+        key: Tensor = self.k_W(x)
         value = self.v_W(x)
         query = self.q_W(x)
-        key = key.view(B, T, self.n_head, self.head_dim)
-        value = value.view(B, T, self.n_head, self.head_dim)
-        query = query.view(B, T, self.n_head, self.head_dim)
         # Transpose: (B, T, n_head, head_dim) -> (B, n_head, T, head_dim)
-        key = key.transpose(1, 2)
-        query = query.transpose(1, 2)
-        value = value.transpose(1, 2)
-        """
-        # WHY NOT THIS DIRECTLY
-        key = key.view(B, self.head_dim, T, self.n_head)
-        value = value.view(B, self.head_dim, T, self.n_head)
-        query = query.view(B, self.head_dim, T, self.n_head)
-        """
-        omega: torch.Tensor = query @ key.transpose(2, 3)
+        key: Tensor = key.view(x.shape[:2], self.n_head, -1).permute(0, 2, 1, 3)
+        value: Tensor = value.view(x.shape[:2], self.n_head, -1).permute(0, 2, 1, 3)
+        query: Tensor = query.view(x.shape[:2], self.n_head, -1).permute(0, 2, 1, 3)
+        omega: Tensor = query @ key.transpose(2, 3)
         # mask omega
         omega.masked_fill_(self.mask.bool()[:T, :T], -torch.inf)
         att_weight = torch.softmax(omega / key.shape[-1] ** 0.5, dim=-1)
