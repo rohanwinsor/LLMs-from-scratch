@@ -1,5 +1,18 @@
 import torch.nn as nn
 import torch
+import tiktoken
+from dataclasses import dataclass
+
+
+@dataclass
+class GPTConfig:
+    vocab_size: int = 50257  # Vocabulary size
+    context_length: int = 1024  # Context length
+    emb_dim: int = 768  # Embedding dimension
+    n_heads: int = 12  # Number of attention heads
+    n_layers: int = 12  # Number of layers
+    drop_rate: float = 0.1  # Dropout rate
+    qkv_bias: bool = False  # Query-Key-Value bias
 
 
 class MultiHeadAttention(nn.Module):
@@ -45,17 +58,57 @@ class MultiHeadAttention(nn.Module):
         return self.obj_proj(context.contiguous().view(B, T, self.d_out))
 
 
+class TransformerBlock(nn.Module):
+    def __init__(self, cfg: GPTConfig) -> None:
+        super().__init__()
+
+    def forward(self, x):
+        return x
+
+
+class LayerNorm(nn.Module):
+    """
+    The main idea behind layer normalization is to adjust the activations (outputs)
+    of a neural network layer to have a mean of 0 and a variance of 1
+    """
+    def __init__(self, *args, **kwargs) -> None:
+        super().__init__(*args, **kwargs)
+
+    def forward(self, x):
+        return x
+
+
+class GPT2(nn.Module):
+    def __init__(self, cfg: GPTConfig):
+        super().__init__()
+        # tok embed, pos embed, TransformerBlock, LayerNorm, Linear
+        self.tok_embed = nn.Embedding(cfg.vocab_size, cfg.emb_dim)
+        self.pos_embed = nn.Embedding(cfg.context_length, cfg.emb_dim)
+        self.transformer_blocks = nn.Sequential(
+            *[TransformerBlock(cfg) for _ in range(cfg.n_layers)]
+        )
+        self.layer_nodem = LayerNorm()
+        self.drop_out = nn.Dropout(cfg.drop_rate)
+        self.linear = nn.Linear(cfg.emb_dim, cfg.vocab_size, bias=False)
+
+    def forward(self, inp_toks):
+        B, T = inp_toks.shape
+        tok_emb = self.tok_embed(inp_toks)
+        pos_emb = self.pos_embed(torch.arange(T, device=inp_toks.device))
+        # adding pos embedding to the tok embedding
+        x = tok_emb + pos_emb
+        x = self.drop_out(x)
+        x = self.transformer_blocks(x)
+        x = self.layer_nodem(x)
+        return self.linear(x)
+
 if __name__ == "__main__":
-    torch.manual_seed(123)
-    inputs = torch.tensor(
-        [
-            [0.43, 0.15, 0.89],  # Your (x^1)
-            [0.55, 0.87, 0.66],  # journey (x^2)
-            [0.57, 0.85, 0.64],  # starts (x^3)
-            [0.22, 0.58, 0.33],  # with (x^4)
-            [0.77, 0.25, 0.10],  # one (x^5)
-            [0.05, 0.80, 0.55],  # step (x^6)
-        ]
-    )
-    mha = MultiHeadAttention(3, 2, 6, 0.0, 2)
-    print(mha(torch.stack((inputs,))))
+    tokenizer = tiktoken.get_encoding("gpt2")
+    batch = []
+    txt1 = "Every effort moves you"
+    txt2 = "Every day holds a"
+    batch = torch.stack([torch.tensor(tokenizer.encode(txt1))], dim=0)
+    gpt_config = GPTConfig()
+    logits = GPT2(cfg=gpt_config)(batch)
+    print(logits)
+    print(logits.shape)
