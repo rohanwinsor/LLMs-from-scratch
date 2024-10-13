@@ -85,6 +85,7 @@ class MultiHeadAttentionNoBatch(nn.Module):
         # (num_tokens, num_heads, head_dim) -> (num_tokens, d_out)
         return self.out_proj(context.contiguous().view(T, self.d_out))
 
+
 if __name__ == "__main__":
     torch.manual_seed(123)
     inputs = torch.tensor(

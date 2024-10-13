@@ -24,9 +24,13 @@ def download_and_load_gpt2(model_size, models_dir):
     model_dir = os.path.join(models_dir, model_size)
     base_url = "https://openaipublic.blob.core.windows.net/gpt-2/models"
     filenames = [
-        "checkpoint", "encoder.json", "hparams.json",
-        "model.ckpt.data-00000-of-00001", "model.ckpt.index",
-        "model.ckpt.meta", "vocab.bpe"
+        "checkpoint",
+        "encoder.json",
+        "hparams.json",
+        "model.ckpt.data-00000-of-00001",
+        "model.ckpt.index",
+        "model.ckpt.meta",
+        "vocab.bpe",
     ]
 
     # Download files
@@ -63,8 +67,15 @@ def download_file(url, destination):
             block_size = 1024  # 1 Kilobyte
 
             # Initialize the progress bar with total file size
-            progress_bar_description = os.path.basename(url)  # Extract filename from URL
-            with tqdm(total=file_size, unit="iB", unit_scale=True, desc=progress_bar_description) as progress_bar:
+            progress_bar_description = os.path.basename(
+                url
+            )  # Extract filename from URL
+            with tqdm(
+                total=file_size,
+                unit="iB",
+                unit_scale=True,
+                desc=progress_bar_description,
+            ) as progress_bar:
                 # Open the destination file in binary write mode
                 with open(destination, "wb") as file:
                     # Read the file in chunks and write to destination
@@ -78,7 +89,8 @@ def download_file(url, destination):
         s = (
             f"The specified URL ({url}) is incorrect, the internet connection cannot be established,"
             "\nor the requested file is temporarily unavailable.\nPlease visit the following website"
-            " for help: https://github.com/rasbt/LLMs-from-scratch/discussions/273")
+            " for help: https://github.com/rasbt/LLMs-from-scratch/discussions/273"
+        )
         print(s)
 
 
