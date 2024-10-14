@@ -1,7 +1,7 @@
 import torch.nn as nn
 import torch
 from dataclasses import dataclass
-
+from utils.utils import generate_new_text
 
 @dataclass
 class GPTConfig:
@@ -149,7 +149,7 @@ class GPT2(nn.Module):
         )
         self.layer_nodem = LayerNorm(cfg.emb_dim)
         self.drop_out = nn.Dropout(cfg.drop_rate)
-        self.linear = nn.Linear(cfg.emb_dim, cfg.vocab_size, bias=False)
+        self.out_head = nn.Linear(cfg.emb_dim, cfg.vocab_size, bias=False)
 
     def forward(self, inp_toks):
         B, T = inp_toks.shape
@@ -160,7 +160,7 @@ class GPT2(nn.Module):
         x = self.drop_out(x)
         x = self.transformer_blocks(x)
         x = self.layer_nodem(x)
-        return self.linear(x)
+        return self.out_head(x)
 
 
 if __name__ == "__main__":
@@ -172,6 +172,11 @@ if __name__ == "__main__":
     txt2 = "Every day holds a"
     batch = torch.stack([torch.tensor(tokenizer.encode(txt1))], dim=0)
     gpt_config = GPTConfig()
-    logits = GPT2(cfg=gpt_config)(batch)
-    print(logits)
-    print(logits.shape)
+    model = GPT2(cfg=gpt_config)
+    total_params = sum(p.numel() for p in model.parameters())
+    print(f"Total number of parameters: {total_params:,}")
+    total_size_bytes = total_params * 4
+    total_size_mb = total_size_bytes / (1024 * 1024)
+    print(f"Total size of the model: {total_size_mb:.2f} MB")
+    logits = generate_new_text(batch, model, gpt_config.context_length, 100)
+    print(tokenizer.decode(logits.tolist()[0]))
