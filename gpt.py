@@ -73,10 +73,10 @@ class TransformerBlock(nn.Module):
             n_head=cfg.n_heads,
             qkv_bias=cfg.qkv_bias,
         )
-        self.dropout = nn.Dropout(cfg.drop_rate)
+        self.ff = FeedForward(cfg)
         self.layer_norm1 = LayerNorm(embed_dim=cfg.emb_dim)
         self.layer_norm2 = LayerNorm(embed_dim=cfg.emb_dim)
-        self.ff = FeedForward(cfg)
+        self.dropout = nn.Dropout(cfg.drop_rate)
 
     def forward(self, x):
         shortcut = x
@@ -141,17 +141,17 @@ class LayerNorm(nn.Module):
         return self.scale * norm + self.shift
 
 
-class GPT2(nn.Module):
+class GPTModel(nn.Module):
     def __init__(self, cfg: GPTConfig):
         super().__init__()
         # tok embed, pos embed, TransformerBlock, LayerNorm, Linear
         self.tok_embed = nn.Embedding(cfg.vocab_size, cfg.emb_dim)
         self.pos_embed = nn.Embedding(cfg.context_length, cfg.emb_dim)
+        self.drop_out = nn.Dropout(cfg.drop_rate)
         self.transformer_blocks = nn.Sequential(
             *[TransformerBlock(cfg) for _ in range(cfg.n_layers)]
         )
         self.layer_norm = LayerNorm(cfg.emb_dim)
-        self.drop_out = nn.Dropout(cfg.drop_rate)
         self.out_head = nn.Linear(cfg.emb_dim, cfg.vocab_size, bias=False)
 
     def forward(self, inp_toks):
@@ -163,34 +163,46 @@ class GPT2(nn.Module):
         x = self.drop_out(x)
         x = self.transformer_blocks(x)
         x = self.layer_norm(x)
-        return self.out_head(x)
+        logits = self.out_head(x)
+        return logits
 
 
 if __name__ == "__main__":
     import tiktoken
+    from utils.utils import generate, text_to_token_ids, token_ids_to_text
 
     tokenizer = tiktoken.get_encoding("gpt2")
-    batch = []
     txt1 = "Every effort moves you"
     txt2 = "Every day holds a"
-    batch = torch.stack([torch.tensor(tokenizer.encode(txt1))], dim=0)
-    gpt_config = GPTConfig()
-    # model = GPT2(cfg=gpt_config)
-    # total_params = sum(p.numel() for p in model.parameters())
-    # print(f"Total number of parameters: {total_params:,}")
-    # total_size_bytes = total_params * 4
-    # total_size_mb = total_size_bytes / (1024 * 1024)
-    # print(f"Total size of the model: {total_size_mb:.2f} MB")
-    # model.eval()
-    # logits = generate_new_text(batch, model, gpt_config.context_length, 100)
-    # print(tokenizer.decode(logits.tolist()[0]))
-    
-    ## Load Open AI Weights
-    settings, params = download_and_load_gpt2(
-    model_size="124M", models_dir="gpt2"
+    batch = torch.stack(
+        [torch.tensor(tokenizer.encode(txt1)), torch.tensor(tokenizer.encode(txt2))],
+        dim=0,
     )
-    model = GPT2(gpt_config)
+    torch.manual_seed(123)
+    gpt_config = GPTConfig()
+    model = GPTModel(cfg=gpt_config)
+    total_params = sum(p.numel() for p in model.parameters())
+    print(f"Total number of parameters: {total_params:,}")
+    total_size_bytes = total_params * 4
+    total_size_mb = total_size_bytes / (1024 * 1024)
+    print(f"Total size of the model: {total_size_mb:.2f} MB")
+    out = model(batch)
+    print("Input batch:\n", batch)
+    print("\nOutput shape:", out.shape)
+    print(out)
+    # ## Load Open AI Weights
+    settings, params = download_and_load_gpt2(model_size="124M", models_dir="gpt2")
+    model = GPTModel(gpt_config)
     load_weights_into_gpt(model, params)
     model.eval()
-    logits = generate_new_text(batch, model, gpt_config.context_length, 100)
+    logits = generate_new_text(batch, model, gpt_config.context_length, 10)
     print(tokenizer.decode(logits.tolist()[0]))
+    token_ids = generate(
+        model=model,
+        idx=text_to_token_ids("Every effort moves you", tokenizer).to("cpu"),
+        max_new_tokens=25,
+        context_size=1000,
+        top_k=50,
+        temperature=1.5,
+    )
+    print("Output text:\n", token_ids_to_text(token_ids, tokenizer))
