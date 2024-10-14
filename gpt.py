@@ -71,11 +71,16 @@ class LayerNorm(nn.Module):
     The main idea behind layer normalization is to adjust the activations (outputs)
     of a neural network layer to have a mean of 0 and a variance of 1
     """
-    def __init__(self, *args, **kwargs) -> None:
-        super().__init__(*args, **kwargs)
-
-    def forward(self, x):
-        return x
+    def __init__(self, embed_dim) -> None:
+        super().__init__(embed_dim)
+        self.epislon = 1e-5
+        self.scale = nn.Parameter(torch.ones(embed_dim))
+        self.shift = nn.Parameter(torch.zeros(embed_dim))
+    def forward(self, x: torch.Tensor):
+        mean = x.mean(dim=-1, keepdim=True)
+        var = x.var(dim=-1, keepdim=True)
+        norm = (x - mean)/torch.sqrt(var + self.epislon)
+        return self.scale * norm + self.shift
 
 
 class GPT2(nn.Module):
