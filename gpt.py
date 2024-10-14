@@ -1,7 +1,10 @@
 import torch.nn as nn
 import torch
+import json
+from utils.gpt_download import download_and_load_gpt2
 from dataclasses import dataclass
-from utils.utils import generate_new_text
+from utils.utils import generate_new_text, load_weights_into_gpt
+
 
 @dataclass
 class GPTConfig:
@@ -11,7 +14,7 @@ class GPTConfig:
     n_heads: int = 12  # Number of attention heads
     n_layers: int = 12  # Number of layers
     drop_rate: float = 0.1  # Dropout rate
-    qkv_bias: bool = False  # Query-Key-Value bias
+    qkv_bias: bool = True  # Query-Key-Value bias
 
 
 class MultiHeadAttention(nn.Module):
@@ -29,7 +32,7 @@ class MultiHeadAttention(nn.Module):
         self.W_keys = nn.Linear(d_in, d_out, bias=qkv_bias)
         self.W_values = nn.Linear(d_in, d_out, bias=qkv_bias)
         self.dropout = nn.Dropout(dropout)
-        self.obj_proj = nn.Linear(d_out, d_out)
+        self.out_proj = nn.Linear(d_out, d_out)
         self.register_buffer(
             "mask", torch.triu(torch.ones(context_len, context_len), diagonal=1)
         )
@@ -54,7 +57,7 @@ class MultiHeadAttention(nn.Module):
         )
         # (batch_size, no_of_heads, num_of_tokens, head_dim) -> (batch_size, num_of_tokens, no_of_heads, head_dim)
         context: torch.Tensor = (att_weight @ values).transpose(1, 2)
-        return self.obj_proj(context.contiguous().view(B, T, self.d_out))
+        return self.out_proj(context.contiguous().view(B, T, self.d_out))
 
 
 class TransformerBlock(nn.Module):
@@ -109,14 +112,14 @@ class GELU(nn.Module):
 class FeedForward(nn.Module):
     def __init__(self, cfg: GPTConfig):
         super().__init__()
-        self.linear = nn.Sequential(
+        self.layers = nn.Sequential(
             nn.Linear(cfg.emb_dim, 4 * cfg.emb_dim),
             GELU(),
             nn.Linear(4 * cfg.emb_dim, cfg.emb_dim),
         )
 
     def forward(self, x):
-        return self.linear(x)
+        return self.layers(x)
 
 
 class LayerNorm(nn.Module):
@@ -147,7 +150,7 @@ class GPT2(nn.Module):
         self.transformer_blocks = nn.Sequential(
             *[TransformerBlock(cfg) for _ in range(cfg.n_layers)]
         )
-        self.layer_nodem = LayerNorm(cfg.emb_dim)
+        self.layer_norm = LayerNorm(cfg.emb_dim)
         self.drop_out = nn.Dropout(cfg.drop_rate)
         self.out_head = nn.Linear(cfg.emb_dim, cfg.vocab_size, bias=False)
 
@@ -159,7 +162,7 @@ class GPT2(nn.Module):
         x = tok_emb + pos_emb
         x = self.drop_out(x)
         x = self.transformer_blocks(x)
-        x = self.layer_nodem(x)
+        x = self.layer_norm(x)
         return self.out_head(x)
 
 
@@ -172,11 +175,22 @@ if __name__ == "__main__":
     txt2 = "Every day holds a"
     batch = torch.stack([torch.tensor(tokenizer.encode(txt1))], dim=0)
     gpt_config = GPTConfig()
-    model = GPT2(cfg=gpt_config)
-    total_params = sum(p.numel() for p in model.parameters())
-    print(f"Total number of parameters: {total_params:,}")
-    total_size_bytes = total_params * 4
-    total_size_mb = total_size_bytes / (1024 * 1024)
-    print(f"Total size of the model: {total_size_mb:.2f} MB")
+    # model = GPT2(cfg=gpt_config)
+    # total_params = sum(p.numel() for p in model.parameters())
+    # print(f"Total number of parameters: {total_params:,}")
+    # total_size_bytes = total_params * 4
+    # total_size_mb = total_size_bytes / (1024 * 1024)
+    # print(f"Total size of the model: {total_size_mb:.2f} MB")
+    # model.eval()
+    # logits = generate_new_text(batch, model, gpt_config.context_length, 100)
+    # print(tokenizer.decode(logits.tolist()[0]))
+    
+    ## Load Open AI Weights
+    settings, params = download_and_load_gpt2(
+    model_size="124M", models_dir="gpt2"
+    )
+    model = GPT2(gpt_config)
+    load_weights_into_gpt(model, params)
+    model.eval()
     logits = generate_new_text(batch, model, gpt_config.context_length, 100)
     print(tokenizer.decode(logits.tolist()[0]))
