@@ -1,6 +1,5 @@
 import torch.nn as nn
 import torch
-import tiktoken
 from dataclasses import dataclass
 
 
@@ -59,30 +58,34 @@ class MultiHeadAttention(nn.Module):
 
 
 class TransformerBlock(nn.Module):
+    # input -> LayerNorm2 -> MHA -> DropOut -> residual connection
+    # -> LayerNorm2 -> FF -> Dropout -> residual connection -> output
     def __init__(self, cfg: GPTConfig) -> None:
         super().__init__()
+        self.mhma = MultiHeadAttention(
+            d_in=cfg.vocab_size,
+            d_out=cfg.emb_dim,
+            context_len=cfg.context_length,
+            dropout=cfg.drop_rate,
+            n_head=cfg.n_heads,
+            qkv_bias=cfg.qkv_bias,
+        )
+        self.dropout = nn.Dropout(cfg.drop_rate)
+        self.layer_norm1 = LayerNorm(embed_dim=cfg.emb_dim)
+        self.layer_norm2 = LayerNorm(embed_dim=cfg.emb_dim)
+        self.ff = FeedForward(cfg)
 
     def forward(self, x):
-        return x
-
-
-class LayerNorm(nn.Module):
-    """
-    The main idea behind layer normalization is to adjust the activations (outputs)
-    of a neural network layer to have a mean of 0 and a variance of 1
-    """
-
-    def __init__(self, embed_dim) -> None:
-        super().__init__(embed_dim)
-        self.epislon = 1e-5
-        self.scale = nn.Parameter(torch.ones(embed_dim))
-        self.shift = nn.Parameter(torch.zeros(embed_dim))
-
-    def forward(self, x: torch.Tensor):
-        mean = x.mean(dim=-1, keepdim=True)
-        var = x.var(dim=-1, keepdim=True, unbiased=False)
-        norm = (x - mean) / torch.sqrt(var + self.epislon)
-        return self.scale * norm + self.shift
+        shortcut = x
+        x = self.layer_norm1(x)
+        x = self.mhma(x)
+        x = self.dropout(x)
+        x = x + shortcut
+        shortcut = x
+        x = self.layer_norm2(x)
+        x = self.ff(x)
+        x = self.dropout(x)
+        return x + shortcut
 
 
 class GELU(nn.Module):
@@ -103,6 +106,38 @@ class GELU(nn.Module):
         )
 
 
+class FeedForward(nn.Module):
+    def __init__(self, cfg: GPTConfig):
+        super().__init__()
+        self.linear = nn.Sequential(
+            nn.Linear(cfg.emb_dim, 4 * cfg.emb_dim),
+            GELU(),
+            nn.Linear(4 * cfg.emb_dim, cfg.emb_dim),
+        )
+
+    def forward(self, x):
+        return self.linear(x)
+
+
+class LayerNorm(nn.Module):
+    """
+    The main idea behind layer normalization is to adjust the activations (outputs)
+    of a neural network layer to have a mean of 0 and a variance of 1
+    """
+
+    def __init__(self, embed_dim) -> None:
+        super().__init__()
+        self.epislon = 1e-5
+        self.scale = nn.Parameter(torch.ones(embed_dim))
+        self.shift = nn.Parameter(torch.zeros(embed_dim))
+
+    def forward(self, x: torch.Tensor):
+        mean = x.mean(dim=-1, keepdim=True)
+        var = x.var(dim=-1, keepdim=True, unbiased=False)
+        norm = (x - mean) / torch.sqrt(var + self.epislon)
+        return self.scale * norm + self.shift
+
+
 class GPT2(nn.Module):
     def __init__(self, cfg: GPTConfig):
         super().__init__()
@@ -112,7 +147,7 @@ class GPT2(nn.Module):
         self.transformer_blocks = nn.Sequential(
             *[TransformerBlock(cfg) for _ in range(cfg.n_layers)]
         )
-        self.layer_nodem = LayerNorm()
+        self.layer_nodem = LayerNorm(cfg.emb_dim)
         self.drop_out = nn.Dropout(cfg.drop_rate)
         self.linear = nn.Linear(cfg.emb_dim, cfg.vocab_size, bias=False)
 
@@ -129,6 +164,8 @@ class GPT2(nn.Module):
 
 
 if __name__ == "__main__":
+    import tiktoken
+
     tokenizer = tiktoken.get_encoding("gpt2")
     batch = []
     txt1 = "Every effort moves you"
