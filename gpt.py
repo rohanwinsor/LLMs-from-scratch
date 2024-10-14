@@ -63,7 +63,7 @@ class TransformerBlock(nn.Module):
     def __init__(self, cfg: GPTConfig) -> None:
         super().__init__()
         self.mhma = MultiHeadAttention(
-            d_in=cfg.vocab_size,
+            d_in=cfg.emb_dim,
             d_out=cfg.emb_dim,
             context_len=cfg.context_length,
             dropout=cfg.drop_rate,
