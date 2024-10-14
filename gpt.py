@@ -71,16 +71,36 @@ class LayerNorm(nn.Module):
     The main idea behind layer normalization is to adjust the activations (outputs)
     of a neural network layer to have a mean of 0 and a variance of 1
     """
+
     def __init__(self, embed_dim) -> None:
         super().__init__(embed_dim)
         self.epislon = 1e-5
         self.scale = nn.Parameter(torch.ones(embed_dim))
         self.shift = nn.Parameter(torch.zeros(embed_dim))
+
     def forward(self, x: torch.Tensor):
         mean = x.mean(dim=-1, keepdim=True)
-        var = x.var(dim=-1, keepdim=True)
-        norm = (x - mean)/torch.sqrt(var + self.epislon)
+        var = x.var(dim=-1, keepdim=True, unbiased=False)
+        norm = (x - mean) / torch.sqrt(var + self.epislon)
         return self.scale * norm + self.shift
+
+
+class GELU(nn.Module):
+    def __init__(self):
+        super().__init__()
+
+    def forward(self, x):
+        return (
+            0.5
+            * x
+            * (
+                1
+                + torch.tanh(
+                    torch.sqrt(torch.tensor(2.0 / torch.pi))
+                    * (x + 0.044715 * torch.pow(x, 3))
+                )
+            )
+        )
 
 
 class GPT2(nn.Module):
@@ -106,6 +126,7 @@ class GPT2(nn.Module):
         x = self.transformer_blocks(x)
         x = self.layer_nodem(x)
         return self.linear(x)
+
 
 if __name__ == "__main__":
     tokenizer = tiktoken.get_encoding("gpt2")
