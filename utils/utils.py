@@ -3,42 +3,35 @@ import numpy as np
 from tqdm import trange
 
 
-def token_ids_to_text(token_ids, tokenizer):
-    flat = token_ids.squeeze(0)  # remove batch dimension
-    return tokenizer.decode(flat.tolist())
-
-
-def text_to_token_ids(text, tokenizer):
-    encoded = tokenizer.encode(text, allowed_special={"<|endoftext|>"})
-    encoded_tensor = torch.tensor(encoded).unsqueeze(0)  # add batch dimension
-    return encoded_tensor
-
-
-def generate(
-    model, idx, max_new_tokens, context_size, temperature=0.0, top_k=None, eos_id=None
-):
-    for _ in range(max_new_tokens):
-        idx_cond = idx[:, -context_size:]
-        with torch.no_grad():
-            logits = model(idx_cond)
-        logits = logits[:, -1, :]
-        if top_k is not None:
+def generate(idx: torch.Tensor, model, context_length, max_output_token, temperate=0.1, top_k=5):
+    assert top_k >= 1
+    if not temperate:
+        for _ in trange(max_output_token):
+            idx_inp = idx[:, -context_length:]
+            logits = model(idx_inp)
+            # (batch, T, out_dim) -> (batch, out_dim) of final element in seq
+            logits = logits[:, -1, :]
+            proba = torch.softmax(logits, dim=-1)
+            out_tok = torch.argmax(proba, dim=-1, keepdim=True)
+            idx = torch.concat((idx, out_tok), dim=1)
+        return idx
+    else:
+        for _ in trange(max_output_token):
+            idx_inp = idx[:, -context_length:]
+            logits = model(idx_inp)
+            # (batch, T, out_dim) -> (batch, out_dim) of final element in seq
+            logits = logits[:, -1, :]
             top_logits, _ = torch.topk(logits, top_k)
             min_val = top_logits[:, -1]
             logits = torch.where(
-                logits < min_val, torch.tensor(float("-inf")).to(logits.device), logits
-            )
-        if temperature > 0.0:
-            logits = logits / temperature
-            probs = torch.softmax(logits, dim=-1)
-            idx_next = torch.multinomial(probs, num_samples=1)
-        else:
-            idx_next = torch.argmax(logits, dim=-1, keepdim=True)
-        if idx_next == eos_id:
-            print(eos_id)
-            break
-        idx = torch.cat((idx, idx_next), dim=1)
-    return idx
+                logits < min_val,
+                torch.tensor(float('-inf')).to(logits.device),
+                logits
+                )
+            proba = torch.softmax(logits, dim=-1)
+            out_tok = torch.multinomial(proba, num_samples=1)
+            idx = torch.concat((idx, out_tok), dim=1)
+        return idx
 
 
 def generate_new_text(idx: torch.Tensor, model, context_length, max_output_token):

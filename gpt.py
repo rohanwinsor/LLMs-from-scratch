@@ -169,13 +169,13 @@ class GPTModel(nn.Module):
 
 if __name__ == "__main__":
     import tiktoken
-    from utils.utils import generate, text_to_token_ids, token_ids_to_text
+    from utils.utils import generate
 
     tokenizer = tiktoken.get_encoding("gpt2")
     txt1 = "Every effort moves you"
     txt2 = "Every day holds a"
     batch = torch.stack(
-        [torch.tensor(tokenizer.encode(txt1)), torch.tensor(tokenizer.encode(txt2))],
+        [torch.tensor(tokenizer.encode(txt1))],
         dim=0,
     )
     torch.manual_seed(123)
@@ -195,14 +195,5 @@ if __name__ == "__main__":
     model = GPTModel(gpt_config)
     load_weights_into_gpt(model, params)
     model.eval()
-    logits = generate_new_text(batch, model, gpt_config.context_length, 10)
+    logits = generate(batch, model, gpt_config.context_length, 25, 1.5, 50)
     print(tokenizer.decode(logits.tolist()[0]))
-    token_ids = generate(
-        model=model,
-        idx=text_to_token_ids("Every effort moves you", tokenizer).to("cpu"),
-        max_new_tokens=25,
-        context_size=1000,
-        top_k=50,
-        temperature=1.5,
-    )
-    print("Output text:\n", token_ids_to_text(token_ids, tokenizer))
