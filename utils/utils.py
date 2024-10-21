@@ -3,7 +3,17 @@ import numpy as np
 from tqdm import trange
 
 
-def generate(idx: torch.Tensor, model, context_length, max_output_token, temperate=0.1, top_k=5):
+def replace_lora(model: torch.nn.Module, LinearLora, rank, alpha):
+    for name, layer in model.named_children():
+        if isinstance(layer, torch.nn.Linear):
+            setattr(model, name, LinearLora(layer, rank, alpha))
+        else:
+            replace_lora(layer, LinearLora, rank, alpha)
+
+
+def generate(
+    idx: torch.Tensor, model, context_length, max_output_token, temperate=0.1, top_k=5
+):
     assert top_k >= 1
     if not temperate:
         for _ in trange(max_output_token):
@@ -24,10 +34,8 @@ def generate(idx: torch.Tensor, model, context_length, max_output_token, tempera
             top_logits, _ = torch.topk(logits, top_k)
             min_val = top_logits[:, -1]
             logits = torch.where(
-                logits < min_val,
-                torch.tensor(float('-inf')).to(logits.device),
-                logits
-                )
+                logits < min_val, torch.tensor(float("-inf")).to(logits.device), logits
+            )
             proba = torch.softmax(logits, dim=-1)
             out_tok = torch.multinomial(proba, num_samples=1)
             idx = torch.concat((idx, out_tok), dim=1)

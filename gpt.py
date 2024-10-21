@@ -3,7 +3,8 @@ import torch
 import json
 from utils.gpt_download import download_and_load_gpt2
 from dataclasses import dataclass
-from utils.utils import generate_new_text, load_weights_into_gpt
+from utils.utils import generate_new_text, load_weights_into_gpt, replace_lora
+from lora import LinearLora
 
 
 @dataclass
@@ -195,5 +196,12 @@ if __name__ == "__main__":
     model = GPTModel(gpt_config)
     load_weights_into_gpt(model, params)
     model.eval()
+    for param in model.parameters():
+        param.requires_grad = False
+    total_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
+    print(f"Total trainable parameters: {total_params:,}")
+    replace_lora(model, LinearLora, rank=16, alpha=16)
+    total_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
+    print(f"Total trainable parameters: {total_params:,}")
     logits = generate(batch, model, gpt_config.context_length, 25, 1.5, 50)
     print(tokenizer.decode(logits.tolist()[0]))
